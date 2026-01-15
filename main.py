@@ -25,7 +25,7 @@ def main():
             raise EnvironmentError(f"Missing environment variable: {var}")
     api_key = os.getenv("API_KEY")
     jws_private_key_path = os.getenv("JWS_PRIVATE_KEY_PATH")
-    max_transfer_amount = int(os.getenv("MAX_TRANSFER_AMOUNT", "7000000"))
+    max_transfer_amount = int(max(os.getenv("MAX_TRANSFER_AMOUNT","0"), "70000000"))
     max_retries = int(os.getenv("MAX_RETRIES", "3"))
 
     if args.amount <= 0:
@@ -80,12 +80,11 @@ def main():
             logging.error(f"Error fetching transfer {t_id}: {e}")
 
     with open('transfers_report.csv', 'w') as f:
-        f.write("id,status,amount,currency,transaction_date,post_date,comment\n")
+        f.write("id,status,amount,currency,transaction_date,comment\n")
         for t in transfers.values():
-            created_at = datetime.datetime.fromtimestamp(t.created_at).isoformat() if hasattr(t, 'transaction_date') else ''
-            completed_at = datetime.datetime.fromtimestamp(t.completed_at).isoformat() if hasattr(t, 'post_date') else ''
+            transaction_date = getattr(t, 'transaction_date', '')
             comment = getattr(t, 'comment', '')
-            f.write(f"{t.id},{getattr(t, 'status', '')},{getattr(t, 'amount', '')},{getattr(t, 'currency', '')},{created_at},{completed_at},{comment}\n")
+            f.write(f"{t.id},{getattr(t, 'status', '')},{getattr(t, 'amount', '')},{getattr(t, 'currency', '')},{transaction_date},{comment}\n")
 
 if __name__ == "__main__":
     load_dotenv()

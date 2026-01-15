@@ -33,6 +33,7 @@ def main():
 
     client = Fintoc(api_key, jws_private_key=jws_private_key_path)
 
+    transfers = {}
     total_amount = args.amount
     transfer_count = 1
     retries = 0
@@ -52,7 +53,7 @@ def main():
         transfer_amount = min(total_amount, max_transfer_amount)
         print(f"Initiating transfer {transfer_count}: {transfer_amount} {args.currency}")
         try:
-            client.v2.transfers._create(
+            transfer = client.v2.transfers._create(
                 url="https://api.fintoc.com/v2/transfers",
                 account_id=args.account_id,
                 amount=transfer_amount,
@@ -63,11 +64,28 @@ def main():
             )
             total_amount -= transfer_amount
             transfer_count += 1
+            transfers[transfer.id] = transfer
         except Exception as e:
             logging.error(f"Error during transfer: {e}")
             retries += 1
             print("An error occurred. Check transfers.log for details.")
             continue
+
+    for t_id in transfers.keys():
+        try:
+            t = client.v2.transfers.get(t_id)
+            transfers[t_id] = t
+        except Exception as e:
+            transfers[t_id]['status'] = 'error'
+            logging.error(f"Error fetching transfer {t_id}: {e}")
+
+    with open('transfers_report.csv', 'w') as f:
+        f.write("id,status,amount,currency,transaction_date,post_date,comment\n")
+        for t in transfers.values():
+            created_at = datetime.datetime.fromtimestamp(t.created_at).isoformat() if hasattr(t, 'transaction_date') else ''
+            completed_at = datetime.datetime.fromtimestamp(t.completed_at).isoformat() if hasattr(t, 'post_date') else ''
+            comment = getattr(t, 'comment', '')
+            f.write(f"{t.id},{getattr(t, 'status', '')},{getattr(t, 'amount', '')},{getattr(t, 'currency', '')},{created_at},{completed_at},{comment}\n")
 
 if __name__ == "__main__":
     load_dotenv()
